@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SentryLink — URL Risk Scanner</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#0b1320;
+    --bg-soft:#101b2d;
+    --panel:#141f33;
+    --line:#24314a;
+    --text:#e7ecf5;
+    --muted:#8b9ab3;
+    --accent:#5ee0c0;
+    --accent-dim:#2c5d52;
+    --safe:#5ee0c0;
+    --warn:#f5b860;
+    --danger:#f2685c;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; }
+  body{
+    font-family:'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height:1.6;
+  }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+
+  /* ---------- Layout shells ---------- */
+  .wrap{ max-width:920px; margin:0 auto; padding:0 24px; }
+
+  /* ---------- Nav ---------- */
+  header{
+    border-bottom:1px solid var(--line);
+    background: rgba(11,19,32,0.85);
+    backdrop-filter: blur(8px);
+    position:sticky; top:0; z-index:10;
+  }
+  nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 24px;
+    max-width:920px; margin:0 auto;
+  }
+  .logo{
+    display:flex; align-items:center; gap:10px;
+    font-weight:700; font-size:1.1rem; letter-spacing:0.02em;
+  }
+  .logo .mark{
+    width:28px; height:28px;
+    border:1.5px solid var(--accent);
+    border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--accent);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.8rem; font-weight:600;
+    transform: rotate(-6deg);
+  }
+  nav .tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.75rem;
+    color:var(--muted);
+    border:1px solid var(--line);
+    padding:4px 10px;
+    border-radius:999px;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    padding:64px 0 48px;
+    border-bottom:1px solid var(--line);
+    position:relative;
+    overflow:hidden;
+  }
+  .hero::before{
+    content:'';
+    position:absolute;
+    top:-120px; right:-120px;
+    width:320px; height:320px;
+    background: radial-gradient(circle, rgba(94,224,192,0.18), transparent 70%);
+    pointer-events:none;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.78rem;
+    color:var(--accent);
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    margin-bottom:14px;
+  }
+  h1{
+    font-size:clamp(1.8rem, 4.5vw, 2.6rem);
+    font-weight:700;
+    letter-spacing:-0.01em;
+    max-width:14ch;
+    margin-bottom:14px;
+  }
+  .hero p{
+    color:var(--muted);
+    max-width:52ch;
+    font-size:1rem;
+    margin-bottom:32px;
+  }
+
+  /* ---------- Scanner card ---------- */
+  .scanner{
+    background: var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:24px;
+    box-shadow: 0 20px 60px -30px rgba(0,0,0,0.6);
+  }
+  .scanner-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.75rem;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    margin-bottom:10px;
+  }
+  .input-row{
+    display:flex; gap:10px;
+  }
+  input[type="text"]{
+    flex:1;
+    background: var(--bg-soft);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:14px 16px;
+    color:var(--text);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.92rem;
+  }
+  input[type="text"]::placeholder{ color:#5a6a85; }
+  input[type="text"]:focus{
+    outline:none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(94,224,192,0.12);
+  }
+  button{
+    background: var(--accent);
+    color:#08221c;
+    border:none;
+    border-radius:8px;
+    padding:0 24px;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:0.92rem;
+    cursor:pointer;
+    transition: transform 0.12s ease, background 0.15s ease;
+  }
+  button:hover{ background:#7ce9d0; }
+  button:active{ transform: scale(0.98); }
+
+  .examples{
+    margin-top:14px;
+    display:flex; gap:8px; flex-wrap:wrap;
+  }
+  .examples span{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.72rem;
+    color:var(--muted);
+    border:1px dashed var(--line);
+    padding:5px 10px;
+    border-radius:999px;
+    cursor:pointer;
+  }
+  .examples span:hover{ border-color:var(--accent); color:var(--accent); }
+
+  /* ---------- Result ---------- */
+  .result{ display:none; margin-top:22px; }
+  .result.show{ display:block; }
+
+  .verdict{
+    border-radius:10px;
+    padding:18px 20px;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+    border:1px solid var(--line);
+    background: var(--bg-soft);
+    margin-bottom:18px;
+  }
+  .verdict.safe{ border-color: rgba(94,224,192,0.4); }
+  .verdict.warn{ border-color: rgba(245,184,96,0.4); }
+  .verdict.danger{ border-color: rgba(242,104,92,0.4); }
+
+  .verdict .left{ display:flex; align-items:center; gap:12px; }
+  .verdict .dot{
+    width:12px; height:12px; border-radius:50%;
+  }
+  .verdict.safe .dot{ background:var(--safe); box-shadow:0 0 12px var(--safe); }
+  .verdict.warn .dot{ background:var(--warn); box-shadow:0 0 12px var(--warn); }
+  .verdict.danger .dot{ background:var(--danger); box-shadow:0 0 12px var(--danger); }
+
+  .verdict .label{ font-weight:700; font-size:1.05rem; }
+  .verdict.safe .label{ color:var(--safe); }
+  .verdict.warn .label{ color:var(--warn); }
+  .verdict.danger .label{ color:var(--danger); }
+
+  .score-box{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.85rem;
+    color:var(--muted);
+  }
+
+  .checks{
+    display:grid;
+    gap:1px;
+    background: var(--line);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .check-row{
+    background: var(--bg-soft);
+    display:flex; justify-content:space-between; align-items:flex-start; gap:14px;
+    padding:13px 16px;
+  }
+  .check-name{ font-size:0.92rem; }
+  .check-detail{ font-size:0.78rem; color:var(--muted); margin-top:3px; }
+  .tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.7rem;
+    padding:3px 9px;
+    border-radius:999px;
+    white-space:nowrap;
+    border:1px solid;
+    height:fit-content;
+  }
+  .tag.pass{ color:var(--safe); border-color: rgba(94,224,192,0.4); }
+  .tag.flag{ color:var(--warn); border-color: rgba(245,184,96,0.4); }
+  .tag.fail{ color:var(--danger); border-color: rgba(242,104,92,0.4); }
+
+  .empty-hint{
+    margin-top:18px;
+    font-size:0.85rem;
+    color:var(--muted);
+    text-align:center;
+    padding:20px 0;
+    border-top:1px dashed var(--line);
+  }
+
+  /* ---------- Info section ---------- */
+  .info{ padding:48px 0; }
+  .info h2{
+    font-size:1.3rem;
+    margin-bottom:8px;
+  }
+  .info > p{ color:var(--muted); margin-bottom:28px; max-width:60ch; }
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap:16px;
+  }
+  .card{
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:18px;
+    background: var(--panel);
+  }
+  .card .num{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.75rem;
+    color:var(--accent);
+    margin-bottom:8px;
+  }
+  .card h3{ font-size:0.98rem; margin-bottom:6px; }
+  .card p{ font-size:0.85rem; color:var(--muted); }
+
+  footer{
+    border-top:1px solid var(--line);
+    padding:28px 0 40px;
+    color:var(--muted);
+    font-size:0.8rem;
+    text-align:center;
+  }
+  footer a{ color:var(--accent); text-decoration:none; }
+
+  @media (max-width:560px){
+    .input-row{ flex-direction:column; }
+    button{ padding:14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <div class="logo">
+      <div class="mark">SL</div>
+      SentryLink
+    </div>
+    <div class="tag mono">client-side heuristic scan</div>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="eyebrow">URL SAFETY CHECK</div>
+    <h1>Check a link before it checks your data.</h1>
+    <p>Paste any URL below. SentryLink runs it through ten common phishing-pattern checks instantly in your browser — no link is sent anywhere.</p>
+
+    <div class="scanner">
+      <div class="scanner-label mono">Scan a URL</div>
+      <div class="input-row">
+        <input type="text" id="urlInput" placeholder="e.g. http://login-paypal-secure.tk/verify" autocomplete="off">
+        <button id="scanBtn">Scan</button>
+      </div>
+      <div class="examples">
+        <span data-url="https://www.google.com">https://www.google.com</span>
+        <span data-url="http://192.168.4.21@secure-login-update.tk/account/verify">suspicious example</span>
+        <span data-url="https://accounts-google-verify.support/login">brand mimic example</span>
+      </div>
+
+      <div id="emptyHint" class="empty-hint">Results will appear here after you scan a URL.</div>
+
+      <div id="result" class="result">
+        <div id="verdict" class="verdict">
+          <div class="left">
+            <div class="dot"></div>
+            <div class="label" id="verdictLabel">—</div>
+          </div>
+          <div class="score-box" id="scoreBox">Risk score: 0 / 100</div>
+        </div>
+        <div class="checks" id="checks"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="info">
+  <div class="wrap">
+    <h2>What gets checked</h2>
+    <p>Each scan runs ten lightweight, well-known phishing indicators. None of these alone proves a site is malicious — together they form a quick risk signal.</p>
+    <div class="grid">
+      <div class="card"><div class="num mono">01</div><h3>Encryption</h3><p>Whether the connection uses HTTPS.</p></div>
+      <div class="card"><div class="num mono">02</div><h3>Raw IP address</h3><p>Domains replaced with bare IPs are a red flag.</p></div>
+      <div class="card"><div class="num mono">03</div><h3>"@" symbol abuse</h3><p>Can hide the real destination after the @.</p></div>
+      <div class="card"><div class="num mono">04</div><h3>Hyphen stuffing</h3><p>Used to mimic trusted brand names.</p></div>
+      <div class="card"><div class="num mono">05</div><h3>Risky TLDs</h3><p>Extensions like .tk, .xyz, .top are commonly abused.</p></div>
+      <div class="card"><div class="num mono">06</div><h3>Subdomain depth</h3><p>Excessive subdomains can disguise the true host.</p></div>
+      <div class="card"><div class="num mono">07</div><h3>Brand impersonation</h3><p>Brand names appearing outside the real domain.</p></div>
+      <div class="card"><div class="num mono">08</div><h3>URL shorteners</h3><p>Hide the final destination from the user.</p></div>
+      <div class="card"><div class="num mono">09</div><h3>URL length</h3><p>Unusually long URLs can conceal redirects.</p></div>
+      <div class="card"><div class="num mono">10</div><h3>Urgency keywords</h3><p>Words like "verify", "suspend", "confirm" in the path.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Heuristic checks only — not a guarantee of safety. Never enter passwords or card details on a site reached via an unsolicited link.
+  </div>
+</footer>
+
+<script>
+const urlInput = document.getElementById('urlInput');
+const scanBtn = document.getElementById('scanBtn');
+const result = document.getElementById('result');
+const emptyHint = document.getElementById('emptyHint');
+const verdictEl = document.getElementById('verdict');
+const verdictLabel = document.getElementById('verdictLabel');
+const scoreBox = document.getElementById('scoreBox');
+const checksEl = document.getElementById('checks');
+
+const SUSPICIOUS_TLDS = ['tk','ml','ga','cf','gq','xyz','top','work','click','link','support','live','icu','buzz'];
+const BRAND_KEYWORDS = ['paypal','google','facebook','apple','amazon','microsoft','netflix','bank','instagram','whatsapp','outlook','icloud','irs','login','verify','secure','account','update','signin','sbi','hdfc','icici','paytm','phonepe'];
+const URL_SHORTENERS = ['bit.ly','tinyurl.com','t.co','goo.gl','ow.ly','is.gd','buff.ly','rebrand.ly'];
+
+function analyze(rawUrl) {
+  const checks = [];
+  let score = 0;
+
+  let url = rawUrl.trim();
+  let parsed;
+  let normalized = url;
+  if (!/^https?:\/\//i.test(normalized)) {
+    normalized = 'http://' + normalized;
+  }
+
+  try {
+    parsed = new URL(normalized);
+  } catch (e) {
+    return { error: true };
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // 1. HTTPS
+  if (parsed.protocol === 'https:') {
+    checks.push({ name: 'Uses HTTPS encryption', status: 'pass' });
+  } else {
+    checks.push({ name: 'Uses HTTPS encryption', status: 'fail', detail: 'No HTTPS — connection is not encrypted' });
+    score += 15;
+  }
+
+  // 2. IP address as hostname
+  const ipPattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+  if (ipPattern.test(hostname)) {
+    checks.push({ name: 'Domain is not a raw IP address', status: 'fail', detail: 'Hostname is an IP address — common phishing tactic' });
+    score += 25;
+  } else {
+    checks.push({ name: 'Domain is not a raw IP address', status: 'pass' });
+  }
+
+  // 3. @ symbol
+  if (url.includes('@')) {
+    checks.push({ name: 'No "@" symbol in URL', status: 'fail', detail: '"@" can hide the real destination domain' });
+    score += 20;
+  } else {
+    checks.push({ name: 'No "@" symbol in URL', status: 'pass' });
+  }
+
+  // 4. Hyphens
+  const hyphenCount = (hostname.match(/-/g) || []).length;
+  if (hyphenCount >= 2) {
+    checks.push({ name: 'Domain has few or no hyphens', status: 'flag', detail: `${hyphenCount} hyphens found — often used to mimic brand names` });
+    score += 10;
+  } else {
+    checks.push({ name: 'Domain has few or no hyphens', status: 'pass' });
+  }
+
+  // 5. Suspicious TLD
+  const tld = hostname.split('.').pop();
+  if (SUSPICIOUS_TLDS.includes(tld)) {
+    checks.push({ name: 'Domain extension is commonly trusted', status: 'flag', detail: `".${tld}" is frequently abused for phishing` });
+    score += 15;
+  } else {
+    checks.push({ name: 'Domain extension is commonly trusted', status: 'pass' });
+  }
+
+  // 6. Subdomain depth
+  const hostParts = hostname.split('.');
+  const subdomainCount = Math.max(0, hostParts.length - 2);
+  if (subdomainCount >= 3) {
+    checks.push({ name: 'Reasonable subdomain depth', status: 'flag', detail: `${subdomainCount} subdomains — unusually deep` });
+    score += 10;
+  } else {
+    checks.push({ name: 'Reasonable subdomain depth', status: 'pass' });
+  }
+
+  // 7. Brand keyword mismatch
+  let brandFlag = false;
+  for (const brand of BRAND_KEYWORDS) {
+    if (hostname.includes(brand)) {
+      const mainDomain = hostParts.slice(-2, -1)[0] || '';
+      if (mainDomain !== brand) {
+        brandFlag = true;
+        checks.push({ name: 'Brand name not used misleadingly in domain', status: 'fail', detail: `Contains "${brand}" but domain is "${hostname}" — possible impersonation` });
+        score += 25;
+        break;
+      }
+    }
+  }
+  if (!brandFlag) {
+    checks.push({ name: 'Brand name not used misleadingly in domain', status: 'pass' });
+  }
+
+  // 8. URL shortener
+  if (URL_SHORTENERS.some(s => hostname.includes(s))) {
+    checks.push({ name: 'Not a URL shortener', status: 'flag', detail: 'Shortened URLs hide the real destination' });
+    score += 10;
+  } else {
+    checks.push({ name: 'Not a URL shortener', status: 'pass' });
+  }
+
+  // 9. Length
+  if (url.length > 75) {
+    checks.push({ name: 'URL length is reasonable', status: 'flag', detail: `${url.length} characters — long URLs can hide redirects` });
+    score += 5;
+  } else {
+    checks.push({ name: 'URL length is reasonable', status: 'pass' });
+  }
+
+  // 10. Urgency keywords
+  const sensitiveWords = ['verify','update','confirm','secure','login','signin','password','suspend','unlock','reactivate'];
+  const pathQuery = (parsed.pathname + parsed.search).toLowerCase();
+  const matchedWords = sensitiveWords.filter(w => pathQuery.includes(w));
+  if (matchedWords.length > 0) {
+    checks.push({ name: 'No urgency/credential keywords in path', status: 'flag', detail: `Found: ${matchedWords.join(', ')}` });
+    score += 10;
+  } else {
+    checks.push({ name: 'No urgency/credential keywords in path', status: 'pass' });
+  }
+
+  score = Math.min(score, 100);
+  return { score, checks, hostname };
+}
+
+function render(analysis) {
+  emptyHint.style.display = 'none';
+  result.classList.add('show');
+
+  if (analysis.error) {
+    verdictEl.className = 'verdict danger';
+    verdictLabel.textContent = 'Invalid URL';
+    scoreBox.textContent = '';
+    checksEl.innerHTML = '<div class="check-row"><div class="check-name">Could not parse this as a URL. Try including http:// or https://</div></div>';
+    return;
+  }
+
+  const { score, checks } = analysis;
+  let level, label;
+  if (score >= 50) { level = 'danger'; label = 'High Risk'; }
+  else if (score >= 20) { level = 'warn'; label = 'Use Caution'; }
+  else { level = 'safe'; label = 'Looks Okay'; }
+
+  verdictEl.className = 'verdict ' + level;
+  verdictLabel.textContent = label;
+  scoreBox.textContent = `Risk score: ${score} / 100`;
+
+  checksEl.innerHTML = checks.map(c => {
+    const tagText = c.status === 'pass' ? 'OK' : (c.status === 'fail' ? 'RISK' : 'FLAG');
+    const detail = c.detail ? `<div class="check-detail">${c.detail}</div>` : '';
+    return `<div class="check-row">
+      <div>
+        <div class="check-name">${c.name}</div>
+        ${detail}
+      </div>
+      <div class="tag ${c.status}">${tagText}</div>
+    </div>`;
+  }).join('');
+}
+
+function runScan() {
+  const val = urlInput.value.trim();
+  if (!val) return;
+  const analysis = analyze(val);
+  render(analysis);
+}
+
+scanBtn.addEventListener('click', runScan);
+urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') runScan(); });
+
+document.querySelectorAll('.examples span').forEach(el => {
+  el.addEventListener('click', () => {
+    urlInput.value = el.dataset.url;
+    runScan();
+  });
+});
+</script>
+
+</body>
+</html>
